@@ -1,0 +1,9 @@
+[package]
+name = "emberhunt-sprite-outline"
+version = "1.0.0"
+authors = ["Ponas <mykolas.peteraitis@gmail.com>"]
+edition = "2019"
+
+[dependencies]
+image = "0.21.2"
+time = "0.1"
