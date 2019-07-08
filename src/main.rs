@@ -1,8 +1,11 @@
 extern crate image;
 extern crate time;
+extern crate rayon;
 
 use std::env;
 use std::path::Path;
+use rayon::prelude::*;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 fn main() {
 
@@ -40,59 +43,73 @@ fn main() {
 	// Add the outline
 	println!("Adding the outline to the {}x{} image.\n", img1.dimensions().0, img1.dimensions().1);
 	let start1 = time::precise_time_s();
-	add_outline(&mut img1, outline_color);
+	img1 = add_outline(img1, outline_color);
 	img1.save(format!("{}_{}x{}.png", path_to_file.file_stem().unwrap().to_str().unwrap(), img1.dimensions().0, img1.dimensions().1)).unwrap();
 	println!("\n\n{}x{} image generated! It took {} seconds.", img1.dimensions().0, img1.dimensions().1, time::precise_time_s()-start1);
 
 	println!("Adding the outline to the {}x{} image.\n", img2.dimensions().0, img2.dimensions().1);
 	let start2 = time::precise_time_s();
-	add_outline(&mut img2, outline_color);
+	img2 = add_outline(img2, outline_color);
 	img2.save(format!("{}_{}x{}.png", path_to_file.file_stem().unwrap().to_str().unwrap(), img2.dimensions().0, img2.dimensions().1)).unwrap();
 	println!("\n\n{}x{} image generated! It took {} seconds.", img2.dimensions().0, img2.dimensions().1, time::precise_time_s()-start2);
 
 	println!("Adding the outline to the {}x{} image.\n", img3.dimensions().0, img3.dimensions().1);
 	let start3 = time::precise_time_s();
-	add_outline(&mut img3, outline_color);
+	img3 = add_outline(img3, outline_color);
 	img3.save(format!("{}_{}x{}.png", path_to_file.file_stem().unwrap().to_str().unwrap(), img3.dimensions().0, img3.dimensions().1)).unwrap();
 	println!("\n\n{}x{} image generated! It took {} seconds.", img3.dimensions().0, img3.dimensions().1, time::precise_time_s()-start3);
 
 	println!("\nTotal time taken: {} seconds", time::precise_time_s()-start);
 }
 
-fn add_outline(image: &mut image::ImageBuffer<image::Rgba<u8>, Vec<u8>>, color: [u8; 3]) {
-	// Copy the image
-	let original_image = image.clone();
-
-	// Get width
-	let width: u32 = ((image.dimensions().0+image.dimensions().1)/2)/27;
-
-	let total_iterations: u64 = image.dimensions().0 as u64 * image.dimensions().1 as u64 * 4u64 * width as u64 * width as u64;
-
+fn add_outline(img: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>, color: [u8; 3]) -> image::ImageBuffer<image::Rgba<u8>, Vec<u8>> {
 	let start = time::precise_time_s();
 
-	let mut iterations_done: u64 = 0;
+	// Get width
+	let width: u32 = ((img.width()+img.height())/2)/27;
 
-	// Iterate through the image pixel by pixel
-	for x in 0..image.dimensions().0 {
-		for y in 0..image.dimensions().1 {
-			let message = format!("{:>12} of {:>12} iterations done ({:>5.2}%). ETA: {:>05.1} seconds.\r", 
-				iterations_done,
-				total_iterations,
-				(iterations_done as f64 / total_iterations as f64)*100f64,
-				(total_iterations as f64 - iterations_done as f64) / (iterations_done as f64 / (time::precise_time_s()-start))
-			);
-			iterations_done += (4*width*width) as u64;
-			print!("{:<}", message);
-			// If this pixel is not transparent, ignore it
-			if original_image.get_pixel(x, y)[3]!=0 { continue; }
-			// Change the pixel color to the outline color
-			image.get_pixel_mut(x, y)[0] = color[0];
-			image.get_pixel_mut(x, y)[1] = color[1];
-			image.get_pixel_mut(x, y)[2] = color[2];
-			// Change it's alpha
-			image.get_pixel_mut(x, y)[3] = get_pixel_alpha(width as i32, &original_image, x as i32, y as i32);
-		}
-	}
+	// Distribute the work amongst the cores
+	let mut buffer = img.clone().into_vec();
+
+
+	// Status bar stuff:
+	let total_iterations: u64 = img.width() as u64 * img.height() as u64 + img.width() as u64 * img.height() as u64 * (2*width+1).pow(2) as u64;
+	let iterations_done: AtomicU64 = AtomicU64::new(1_u64);
+
+
+    // Split the image into rows
+    buffer.par_chunks_mut(img.width() as usize * 4usize)
+        .enumerate()
+        .for_each(|(y, row)| {
+            // Read-only access to img here
+            // Write access to row
+            // Iterate through all pixels in this row
+            for x in 0..img.width() {
+            	let iterations_done_new = iterations_done.fetch_add(1_u64 + (2*width+1).pow(2) as u64, Ordering::Relaxed) + (2*width+1).pow(2) as u64;
+            	// If this pixel is not transparent, ignore it
+				if row[(x*4+3) as usize]!=0 { continue; }
+				// Change the pixel color to the outline color
+				row[(x*4) as usize] = color[0];
+				row[(x*4+1) as usize] = color[1];
+				row[(x*4+2) as usize] = color[2];
+				// Change it's alpha
+				row[(x*4+3) as usize] = get_pixel_alpha(width as i32, &img, x as i32, y as i32);
+
+				// Update the status bar
+				let message = format!("{:>12} of {:>12} iterations done ({:>5.2}%). ETA: {:>05.1} seconds.\r", 
+					iterations_done_new,
+					total_iterations,
+					(iterations_done_new as f64 / total_iterations as f64)*100f64,
+					(total_iterations as f64 - iterations_done_new as f64) / (iterations_done_new as f64 / (time::precise_time_s()-start))
+				);
+				print!("{:<}", message);
+
+	            }
+        });
+
+    let final_image = image::ImageBuffer::from_vec(img.width(), img.height(), buffer).unwrap();
+
+    final_image
 }
 
 fn get_pixel_alpha(width: i32, image: &image::ImageBuffer<image::Rgba<u8>, Vec<u8>>, ox: i32, oy: i32) -> u8{
