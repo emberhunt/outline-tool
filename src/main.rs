@@ -35,24 +35,24 @@ fn main() {
 	}
 
 	// Make the resized versions
-	println!("Resizing the images...");
+	println!("Resizing the image to {}x{}...", img.dimensions().0*3, img.dimensions().1*3);
 	let mut img1 = image::imageops::resize(&img, img.dimensions().0*3, img.dimensions().1*3, image::FilterType::Nearest);
-	let mut img2 = image::imageops::resize(&img, img.dimensions().0*6, img.dimensions().1*6, image::FilterType::Nearest);
-	let mut img3 = image::imageops::resize(&img, img.dimensions().0*12, img.dimensions().1*12, image::FilterType::Nearest);
-	
-	// Add the outline
 	println!("Adding the outline to the {}x{} image.\n", img1.dimensions().0, img1.dimensions().1);
 	let start1 = time::precise_time_s();
 	img1 = add_outline(img1, outline_color);
 	img1.save(format!("{}_{}x{}.png", path_to_file.file_stem().unwrap().to_str().unwrap(), img1.dimensions().0, img1.dimensions().1)).unwrap();
 	println!("\n\n{}x{} image generated! It took {} seconds.", img1.dimensions().0, img1.dimensions().1, time::precise_time_s()-start1);
 
+	println!("Resizing the image to {}x{}...", img.dimensions().0*6, img.dimensions().1*6);
+	let mut img2 = image::imageops::resize(&img, img.dimensions().0*6, img.dimensions().1*6, image::FilterType::Nearest);
 	println!("Adding the outline to the {}x{} image.\n", img2.dimensions().0, img2.dimensions().1);
 	let start2 = time::precise_time_s();
 	img2 = add_outline(img2, outline_color);
 	img2.save(format!("{}_{}x{}.png", path_to_file.file_stem().unwrap().to_str().unwrap(), img2.dimensions().0, img2.dimensions().1)).unwrap();
 	println!("\n\n{}x{} image generated! It took {} seconds.", img2.dimensions().0, img2.dimensions().1, time::precise_time_s()-start2);
 
+	println!("Resizing the image to {}x{}...", img.dimensions().0*12, img.dimensions().1*12);
+	let mut img3 = image::imageops::resize(&img, img.dimensions().0*12, img.dimensions().1*12, image::FilterType::Nearest);
 	println!("Adding the outline to the {}x{} image.\n", img3.dimensions().0, img3.dimensions().1);
 	let start3 = time::precise_time_s();
 	img3 = add_outline(img3, outline_color);
