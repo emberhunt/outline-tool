@@ -1,4 +1,4 @@
-# outline-tool
+# outline-tool ![Downloads](https://img.shields.io/github/downloads/emberhunt/outline-tool/total.svg) ![License](https://img.shields.io/github/license/emberhunt/outline-tool.svg) ![Last commit](https://img.shields.io/github/last-commit/emberhunt/outline-tool.svg)
 This is a simple lightweight tool which will add an emberhunt-style outline to sprites.
 
 ## Usage
