@@ -135,5 +135,9 @@ fn get_pixel_alpha(width: i32, image: &image::ImageBuffer<image::Rgba<u8>, Vec<u
 			}
 		}
 	}
+	// If the alpha is very small, just return 0, to reduce image size
+	if alpha <= 20_f64 {
+		return 0_u8;
+	}
 	alpha.round() as u8
 }
